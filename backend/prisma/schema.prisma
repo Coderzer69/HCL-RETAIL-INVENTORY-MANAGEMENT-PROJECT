@@ -1,0 +1,347 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------
+// 1. User & Role Management
+// ---------------------------------------------------------
+
+model Role {
+  id          String     @id @default(uuid()) @db.Uuid
+  name        String     @unique @db.VarChar(50)
+  description String?    @db.Text
+  userRoles   UserRole[]
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  passwordHash String?  @map("password_hash") @db.VarChar(255)
+  firstName    String   @map("first_name") @db.VarChar(100)
+  lastName     String   @map("last_name") @db.VarChar(100)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  roles              UserRole[]
+  suppliers          Supplier?
+  warehouses         Warehouse[]      @relation("ManagerWarehouses")
+  staffAt            WarehouseStaff[]
+  stockMovements     StockMovement[]  @relation("PerformedMovements")
+  salesOrders        SalesOrder[]     @relation("CustomerOrders")
+  purchaseOrders     PurchaseOrder[]  @relation("OrderedPurchaseOrders")
+  notifications      Notification[]
+  initiatedTransfers StockTransfer[]  @relation("InitiatedTransfers")
+  receivedTransfers  StockTransfer[]  @relation("ReceivedTransfers")
+
+  @@map("users")
+}
+
+model UserRole {
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// ---------------------------------------------------------
+// 2. Product Management
+// ---------------------------------------------------------
+
+model Category {
+  id          String  @id @default(uuid()) @db.Uuid
+  parentId    String? @map("parent_id") @db.Uuid
+  name        String  @db.VarChar(100)
+  description String? @db.Text
+
+  parent   Category?  @relation("CategoryParent", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryParent")
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          String   @id @default(uuid()) @db.Uuid
+  sku         String   @unique @db.VarChar(100)
+  barcode     String?  @unique @db.VarChar(100)
+  name        String   @db.VarChar(255)
+  categoryId  String?  @map("category_id") @db.Uuid
+  description String?  @db.Text
+  basePrice   Decimal  @map("base_price") @db.Decimal(12, 2)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  suppliers          ProductSupplier[]
+  inventory          Inventory[]
+  stockMovements     StockMovement[]
+  salesOrderItems    OrderItem[]
+  purchaseOrderItems PurchaseOrderItem[]
+  stockTransferItems StockTransferItem[]
+
+  @@map("products")
+}
+
+// ---------------------------------------------------------
+// 3. Supplier Management
+// ---------------------------------------------------------
+
+model Supplier {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String?  @unique @map("user_id") @db.Uuid
+  companyName String   @map("company_name") @db.VarChar(255)
+  contactName String?  @map("contact_name") @db.VarChar(100)
+  phone       String?  @db.VarChar(50)
+  address     String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user           User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  products       ProductSupplier[]
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model ProductSupplier {
+  productId   String  @map("product_id") @db.Uuid
+  supplierId  String  @map("supplier_id") @db.Uuid
+  supplierSku String? @map("supplier_sku") @db.VarChar(100)
+  unitCost    Decimal @map("unit_cost") @db.Decimal(12, 2)
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@id([productId, supplierId])
+  @@map("product_suppliers")
+}
+
+// ---------------------------------------------------------
+// 4. Warehouse Management
+// ---------------------------------------------------------
+
+model Warehouse {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @db.VarChar(100)
+  locationCode String   @unique @map("location_code") @db.VarChar(50)
+  address      String   @db.Text
+  managerId    String?  @map("manager_id") @db.Uuid
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  manager User? @relation("ManagerWarehouses", fields: [managerId], references: [id], onDelete: SetNull)
+
+  staff                WarehouseStaff[]
+  inventory            Inventory[]
+  stockMovements       StockMovement[]
+  salesOrderItems      OrderItem[]
+  purchaseOrders       PurchaseOrder[]  @relation("DestinationWarehouse")
+  sourceTransfers      StockTransfer[]  @relation("SourceWarehouseTransfers")
+  destinationTransfers StockTransfer[]  @relation("DestinationWarehouseTransfers")
+
+  @@map("warehouses")
+}
+
+model WarehouseStaff {
+  warehouseId String @map("warehouse_id") @db.Uuid
+  userId      String @map("user_id") @db.Uuid
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([warehouseId, userId])
+  @@map("warehouse_staff")
+}
+
+model StockTransfer {
+  id                     String   @id @default(uuid()) @db.Uuid
+  sourceWarehouseId      String   @map("source_warehouse_id") @db.Uuid
+  destinationWarehouseId String   @map("destination_warehouse_id") @db.Uuid
+  status                 String   @db.VarChar(50) // PENDING, IN_TRANSIT, COMPLETED, CANCELLED
+  initiatedById          String?  @map("initiated_by_id") @db.Uuid
+  receivedById           String?  @map("received_by_id") @db.Uuid
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  sourceWarehouse      Warehouse           @relation("SourceWarehouseTransfers", fields: [sourceWarehouseId], references: [id], onDelete: Restrict)
+  destinationWarehouse Warehouse           @relation("DestinationWarehouseTransfers", fields: [destinationWarehouseId], references: [id], onDelete: Restrict)
+  initiatedBy          User?               @relation("InitiatedTransfers", fields: [initiatedById], references: [id], onDelete: SetNull)
+  receivedBy           User?               @relation("ReceivedTransfers", fields: [receivedById], references: [id], onDelete: SetNull)
+  items                StockTransferItem[]
+
+  @@map("stock_transfers")
+}
+
+model StockTransferItem {
+  id              String @id @default(uuid()) @db.Uuid
+  stockTransferId String @map("stock_transfer_id") @db.Uuid
+  productId       String @map("product_id") @db.Uuid
+  quantity        Int
+
+  stockTransfer StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("stock_transfer_items")
+}
+
+// ---------------------------------------------------------
+// 5. Inventory Management
+// ---------------------------------------------------------
+
+model Inventory {
+  id               String   @id @default(uuid()) @db.Uuid
+  productId        String   @map("product_id") @db.Uuid
+  warehouseId      String   @map("warehouse_id") @db.Uuid
+  quantityOnHand   Int      @default(0) @map("quantity_on_hand")
+  quantityReserved Int      @default(0) @map("quantity_reserved")
+  reorderLevel     Int      @default(0) @map("reorder_level")
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, warehouseId])
+  @@map("inventory")
+}
+
+model StockMovement {
+  id            String   @id @default(uuid()) @db.Uuid
+  productId     String   @map("product_id") @db.Uuid
+  warehouseId   String   @map("warehouse_id") @db.Uuid
+  movementType  String   @map("movement_type") @db.VarChar(50) // IN, OUT, RESERVE, RELEASE, TRANSFER, ADJUST
+  quantity      Int
+  referenceType String?  @map("reference_type") @db.VarChar(50) // PO, SO, TRANSFER, MANUAL
+  referenceId   String?  @map("reference_id") @db.Uuid
+  performedById String?  @map("performed_by_id") @db.Uuid
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  performedBy User?     @relation("PerformedMovements", fields: [performedById], references: [id], onDelete: SetNull)
+
+  @@map("stock_movements")
+}
+
+// ---------------------------------------------------------
+// 6. Order Management (Sales)
+// ---------------------------------------------------------
+
+model SalesOrder {
+  id              String   @id @default(uuid()) @db.Uuid
+  orderNumber     String   @unique @map("order_number") @db.VarChar(50)
+  customerId      String   @map("customer_id") @db.Uuid
+  status          String   @db.VarChar(50) // PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED, RETURNED
+  totalAmount     Decimal  @default(0) @map("total_amount") @db.Decimal(12, 2)
+  taxAmount       Decimal  @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  discountAmount  Decimal  @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  shippingAddress String   @map("shipping_address") @db.Text
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  customer  User        @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: Restrict)
+  items     OrderItem[]
+  shipments Shipment[]
+
+  @@map("sales_orders")
+}
+
+model OrderItem {
+  id                   String  @id @default(uuid()) @db.Uuid
+  salesOrderId         String  @map("sales_order_id") @db.Uuid
+  productId            String  @map("product_id") @db.Uuid
+  quantity             Int
+  unitPrice            Decimal @map("unit_price") @db.Decimal(12, 2)
+  allocatedWarehouseId String? @map("allocated_warehouse_id") @db.Uuid
+
+  salesOrder         SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  product            Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+  allocatedWarehouse Warehouse? @relation(fields: [allocatedWarehouseId], references: [id], onDelete: Restrict)
+
+  @@map("sales_order_items")
+}
+
+model Shipment {
+  id             String    @id @default(uuid()) @db.Uuid
+  salesOrderId   String    @map("sales_order_id") @db.Uuid
+  trackingNumber String?   @map("tracking_number") @db.VarChar(100)
+  carrier        String?   @db.VarChar(100)
+  status         String    @db.VarChar(50) // PENDING, SHIPPED, IN_TRANSIT, DELIVERED, FAILED
+  shippedAt      DateTime? @map("shipped_at") @db.Timestamptz
+  deliveredAt    DateTime? @map("delivered_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  salesOrder SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+
+  @@map("shipments")
+}
+
+// ---------------------------------------------------------
+// 7. Procurement (Purchase Orders)
+// ---------------------------------------------------------
+
+model PurchaseOrder {
+  id                     String   @id @default(uuid()) @db.Uuid
+  poNumber               String   @unique @map("po_number") @db.VarChar(50)
+  supplierId             String   @map("supplier_id") @db.Uuid
+  destinationWarehouseId String   @map("destination_warehouse_id") @db.Uuid
+  status                 String   @db.VarChar(50) // DRAFT, SUBMITTED, PARTIAL, COMPLETED, CANCELLED
+  orderedById            String?  @map("ordered_by_id") @db.Uuid
+  totalAmount            Decimal  @default(0) @map("total_amount") @db.Decimal(12, 2)
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  supplier             Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  destinationWarehouse Warehouse           @relation("DestinationWarehouse", fields: [destinationWarehouseId], references: [id], onDelete: Restrict)
+  orderedBy            User?               @relation("OrderedPurchaseOrders", fields: [orderedById], references: [id], onDelete: SetNull)
+  items                PurchaseOrderItem[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id               String  @id @default(uuid()) @db.Uuid
+  purchaseOrderId  String  @map("purchase_order_id") @db.Uuid
+  productId        String  @map("product_id") @db.Uuid
+  quantityOrdered  Int     @map("quantity_ordered")
+  quantityReceived Int     @default(0) @map("quantity_received")
+  unitCost         Decimal @map("unit_cost") @db.Decimal(12, 2)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("purchase_order_items")
+}
+
+// ---------------------------------------------------------
+// 8. Notifications
+// ---------------------------------------------------------
+
+model Notification {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  type        String    @db.VarChar(50)
+  referenceId String?   @map("reference_id") @db.Uuid
+  message     String    @db.Text
+  channel     String    @db.VarChar(50) // EMAIL, SMS, IN_APP
+  status      String    @default("PENDING") @db.VarChar(50) // PENDING, SENT, FAILED
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  sentAt      DateTime? @map("sent_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
