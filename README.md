@@ -368,10 +368,6 @@ Planned areas for continued development include:
 - Automated API and integration tests
 - Production deployment and CI/CD
 
-## Repository
-
-**GitHub:** https://github.com/Coderzer69/HCL-RETAIL-INVENTORY-MANAGEMENT-PROJECT
-
 ## License
 
 This project currently uses the license configuration defined in the repository's package metadata. Add a dedicated license file before distributing the project publicly.
