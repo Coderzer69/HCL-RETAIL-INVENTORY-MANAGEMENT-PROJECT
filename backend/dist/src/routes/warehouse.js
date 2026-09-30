@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const warehouse_1 = require("../controllers/warehouse");
+const auth_1 = require("../middleware/auth");
+const validate_1 = require("../middleware/validate");
+const warehouse_2 = require("../schemas/warehouse");
+const router = (0, express_1.Router)();
+router.post('/', auth_1.authenticate, (0, auth_1.authorize)(['ADMIN', 'STORE_MANAGER']), (0, validate_1.validate)(warehouse_2.createWarehouseSchema), warehouse_1.createWarehouse);
+router.get('/', auth_1.authenticate, (0, auth_1.authorize)(['ADMIN', 'STORE_MANAGER', 'WAREHOUSE_STAFF']), warehouse_1.getWarehouses);
+router.get('/:id', auth_1.authenticate, (0, auth_1.authorize)(['ADMIN', 'STORE_MANAGER', 'WAREHOUSE_STAFF']), warehouse_1.getWarehouseById);
+router.put('/:id', auth_1.authenticate, (0, auth_1.authorize)(['ADMIN', 'STORE_MANAGER']), (0, validate_1.validate)(warehouse_2.updateWarehouseSchema), warehouse_1.updateWarehouse);
+exports.default = router;

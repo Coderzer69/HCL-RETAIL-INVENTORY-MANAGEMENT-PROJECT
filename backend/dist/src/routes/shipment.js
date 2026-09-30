@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const shipment_1 = require("../controllers/shipment");
+const auth_1 = require("../middleware/auth");
+const validate_1 = require("../middleware/validate");
+const shipment_2 = require("../schemas/shipment");
+const router = (0, express_1.Router)();
+router.get('/', auth_1.authenticate, (0, auth_1.authorize)(['ADMIN', 'STORE_MANAGER', 'WAREHOUSE_STAFF']), shipment_1.getAllShipments);
+router.get('/:id', auth_1.authenticate, (0, auth_1.authorize)(['ADMIN', 'STORE_MANAGER', 'WAREHOUSE_STAFF']), shipment_1.getShipmentById);
+router.post('/', auth_1.authenticate, (0, auth_1.authorize)(['ADMIN', 'STORE_MANAGER', 'WAREHOUSE_STAFF']), (0, validate_1.validate)(shipment_2.createGlobalShipmentSchema), shipment_1.createShipment);
+router.put('/:id', auth_1.authenticate, (0, auth_1.authorize)(['ADMIN', 'STORE_MANAGER', 'WAREHOUSE_STAFF']), (0, validate_1.validate)(shipment_2.updateGlobalShipmentSchema), shipment_1.updateShipment);
+router.patch('/:id/status', auth_1.authenticate, (0, auth_1.authorize)(['ADMIN', 'STORE_MANAGER', 'WAREHOUSE_STAFF']), (0, validate_1.validate)(shipment_2.updateShipmentStatusSchema), shipment_1.updateShipmentStatus);
+router.delete('/:id', auth_1.authenticate, (0, auth_1.authorize)(['ADMIN', 'STORE_MANAGER']), shipment_1.deleteShipment);
+exports.default = router;

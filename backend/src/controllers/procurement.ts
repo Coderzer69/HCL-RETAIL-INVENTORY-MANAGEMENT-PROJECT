@@ -10,12 +10,28 @@ export const createPO = async (req: Request, res: Response) => {
     let totalAmount = 0;
 
     const productIds = items.map((i: any) => i.productId);
+    
+    const products = await tx.product.findMany({
+      where: { id: { in: productIds } }
+    });
+
     const productSuppliers = await tx.productSupplier.findMany({
       where: { supplierId, productId: { in: productIds } }
     });
 
-    if (productSuppliers.length !== items.length) {
-      throw new ApiError(400, 'One or more products are not linked to this supplier');
+    for (const item of items) {
+      const existing = productSuppliers.find(ps => ps.productId === item.productId);
+      if (!existing) {
+        const product = products.find(p => p.id === item.productId);
+        const newPs = await tx.productSupplier.create({
+          data: {
+            supplierId,
+            productId: item.productId,
+            unitCost: product ? product.basePrice : 0
+          }
+        });
+        productSuppliers.push(newPs);
+      }
     }
 
     const newPO = await tx.purchaseOrder.create({
@@ -149,4 +165,16 @@ export const receiveGoods = async (req: Request, res: Response) => {
   });
 
   res.status(200).json({ success: true, data: po });
+};
+
+export const getAllPOs = async (req: Request, res: Response) => {
+  const pos = await prisma.purchaseOrder.findMany({
+    include: {
+      supplier: true,
+      destinationWarehouse: true,
+      items: { include: { product: true } }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+  res.status(200).json({ success: true, data: pos });
 };

@@ -274,19 +274,40 @@ model OrderItem {
 }
 
 model Shipment {
-  id             String    @id @default(uuid()) @db.Uuid
-  salesOrderId   String    @map("sales_order_id") @db.Uuid
-  trackingNumber String?   @map("tracking_number") @db.VarChar(100)
-  carrier        String?   @db.VarChar(100)
-  status         String    @db.VarChar(50) // PENDING, SHIPPED, IN_TRANSIT, DELIVERED, FAILED
-  shippedAt      DateTime? @map("shipped_at") @db.Timestamptz
-  deliveredAt    DateTime? @map("delivered_at") @db.Timestamptz
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  id                    String    @id @default(uuid()) @db.Uuid
+  shipmentNumber        String?   @unique @map("shipment_number") @db.VarChar(50)
+  type                  String    @default("OUTBOUND") @db.VarChar(20) // OUTBOUND, INBOUND
+  salesOrderId          String?   @map("sales_order_id") @db.Uuid
+  purchaseOrderId       String?   @map("purchase_order_id") @db.Uuid
+  trackingNumber        String?   @map("tracking_number") @db.VarChar(100)
+  carrier               String?   @db.VarChar(100)
+  status                String    @db.VarChar(50) // PENDING, SHIPPED, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, DELAYED, CANCELLED, FAILED
+  originAddress         String?   @map("origin_address") @db.Text
+  destinationAddress    String?   @map("destination_address") @db.Text
+  shippedAt             DateTime? @map("shipped_at") @db.Timestamptz
+  estimatedDeliveryDate DateTime? @map("estimated_delivery_date") @db.Timestamptz
+  deliveredAt           DateTime? @map("delivered_at") @db.Timestamptz
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
-  salesOrder SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  salesOrder    SalesOrder?    @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  events        ShipmentEvent[]
 
   @@map("shipments")
+}
+
+model ShipmentEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  shipmentId  String   @map("shipment_id") @db.Uuid
+  status      String   @db.VarChar(50)
+  location    String?  @db.VarChar(100)
+  description String?  @db.Text
+  timestamp   DateTime @default(now()) @db.Timestamptz
+
+  shipment Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@map("shipment_events")
 }
 
 // ---------------------------------------------------------
@@ -308,6 +329,7 @@ model PurchaseOrder {
   destinationWarehouse Warehouse           @relation("DestinationWarehouse", fields: [destinationWarehouseId], references: [id], onDelete: Restrict)
   orderedBy            User?               @relation("OrderedPurchaseOrders", fields: [orderedById], references: [id], onDelete: SetNull)
   items                PurchaseOrderItem[]
+  shipments            Shipment[]
 
   @@map("purchase_orders")
 }

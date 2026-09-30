@@ -31,7 +31,7 @@ export const getCategories = async (req: Request, res: Response, next: NextFunct
 export const createProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { sku, barcode } = req.body;
-    
+
     const existing = await prisma.product.findFirst({
       where: { OR: [{ sku }, { barcode: barcode || undefined }] }
     });

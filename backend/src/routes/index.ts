@@ -8,6 +8,8 @@ import supplierRoutes from './supplier';
 import procurementRoutes from './procurement';
 import analyticsRoutes from './analytics';
 import notificationRoutes from './notification';
+import shipmentRoutes from './shipment';
+import userRoutes from './user';
 
 const router = Router();
 
@@ -20,5 +22,7 @@ router.use('/suppliers', supplierRoutes);
 router.use('/procurement', procurementRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/shipments', shipmentRoutes);
+router.use('/users', userRoutes);
 
 export default router;

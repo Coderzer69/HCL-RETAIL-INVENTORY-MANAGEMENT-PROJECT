@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const procurement_1 = require("../controllers/procurement");
+const auth_1 = require("../middleware/auth");
+const validate_1 = require("../middleware/validate");
+const procurement_2 = require("../schemas/procurement");
+const router = (0, express_1.Router)();
+router.post('/', auth_1.authenticate, (0, auth_1.authorize)(['ADMIN', 'STORE_MANAGER']), (0, validate_1.validate)(procurement_2.createPOSchema), procurement_1.createPO);
+router.get('/', auth_1.authenticate, (0, auth_1.authorize)(['ADMIN', 'STORE_MANAGER']), procurement_1.getAllPOs);
+router.patch('/:id/status', auth_1.authenticate, (0, auth_1.authorize)(['ADMIN', 'STORE_MANAGER']), (0, validate_1.validate)(procurement_2.updatePOStatusSchema), procurement_1.updatePOStatus);
+router.post('/:id/receive', auth_1.authenticate, (0, auth_1.authorize)(['ADMIN', 'WAREHOUSE_STAFF']), (0, validate_1.validate)(procurement_2.receiveGoodsSchema), procurement_1.receiveGoods);
+exports.default = router;
